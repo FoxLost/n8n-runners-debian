@@ -179,17 +179,24 @@ COPY --from=launcher-downloader /launcher-bin/* /usr/local/bin/
 # Default n8n task runners configuration
 RUN mkdir -p /etc && \
     echo '{\
-  "taskRunners": {\
-    "javascript": {\
+  "task-runners": [\
+    {\
+      "runner-type": "javascript",\
+      "workdir": "/opt/runners/task-runner-javascript",\
       "command": "/usr/local/bin/node",\
-      "args": ["/opt/runners/task-runner-javascript/dist/index.js"]\
+      "args": ["dist/index.js"],\
+      "health-check-server-port": "5681"\
     },\
-    "python": {\
+    {\
+      "runner-type": "python",\
+      "workdir": "/opt/runners/task-runner-python",\
       "command": "/opt/runners/task-runner-python/.venv/bin/python",\
-      "args": ["-m", "n8n_task_runner_python"]\
+      "args": ["-m", "n8n_task_runner_python"],\
+      "health-check-server-port": "5682"\
     }\
-  }\
+  ]\
 }' > /etc/n8n-task-runners.json
+
 
 # Copy entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
