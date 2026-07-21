@@ -214,7 +214,7 @@ RUN mkdir -p /etc && \
       "command": "/usr/local/bin/node",\
       "args": ["dist/index.js"],\
       "health-check-server-port": "5681",\
-      "allowed-env": ["N8N_RUNNERS_AUTO_SHUTDOWN_TIMEOUT", "N8N_RUNNERS_TASK_TIMEOUT", "NODE_FUNCTION_ALLOW_BUILTIN", "NODE_FUNCTION_ALLOW_EXTERNAL"]\
+      "allowed-env": ["N8N_RUNNERS_AUTO_SHUTDOWN_TIMEOUT", "N8N_RUNNERS_TASK_TIMEOUT", "NODE_FUNCTION_ALLOW_BUILTIN", "NODE_FUNCTION_ALLOW_EXTERNAL", "N8N_RUNNERS_LAUNCHER_LOG_LEVEL", "PYTHONUNBUFFERED"]\
     },\
     {\
       "runner-type": "python",\
@@ -222,7 +222,7 @@ RUN mkdir -p /etc && \
       "command": "/opt/runners/task-runner-python/.venv/bin/python",\
       "args": ["-m", "n8n_task_runner_python"],\
       "health-check-server-port": "5682",\
-      "allowed-env": ["N8N_RUNNERS_AUTO_SHUTDOWN_TIMEOUT", "N8N_RUNNERS_TASK_TIMEOUT", "N8N_RUNNERS_STDLIB_ALLOW", "N8N_RUNNERS_EXTERNAL_ALLOW"]\
+      "allowed-env": ["N8N_RUNNERS_AUTO_SHUTDOWN_TIMEOUT", "N8N_RUNNERS_TASK_TIMEOUT", "N8N_RUNNERS_STDLIB_ALLOW", "N8N_RUNNERS_EXTERNAL_ALLOW", "N8N_RUNNERS_LAUNCHER_LOG_LEVEL", "PYTHONUNBUFFERED"]\
     }\
   ]\
 }' > /etc/n8n-task-runners.json
@@ -231,10 +231,12 @@ RUN mkdir -p /etc && \
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Environment variables for custom package discovery, persistent volume mounts & module security allowlists
+# Environment variables for custom package discovery, persistent volume mounts, module security allowlists & verbose logging
 ENV NODE_ENV=production \
     N8N_RELEASE_TYPE=${N8N_RELEASE_TYPE} \
     SHELL=/bin/bash \
+    PYTHONUNBUFFERED=1 \
+    N8N_RUNNERS_LAUNCHER_LOG_LEVEL=debug \
     VIRTUAL_ENV="/custom-python" \
     PYTHONPATH="/custom-python/lib/python3.13/site-packages:/custom-python/lib/python3/site-packages:/custom-python" \
     NODE_PATH="/custom-node/node_modules:/opt/runners/task-runner-javascript/node_modules" \
@@ -250,6 +252,7 @@ ENV NODE_ENV=production \
     N8N_RUNNERS_EXTERNAL_ALLOW="*" \
     NODE_FUNCTION_ALLOW_BUILTIN="*" \
     NODE_FUNCTION_ALLOW_EXTERNAL="*"
+
 
 USER runner
 

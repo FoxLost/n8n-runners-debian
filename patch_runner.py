@@ -2,7 +2,7 @@
 import os
 import sys
 
-def patch_file(filepath):
+def patch_task_executor(filepath):
     if not os.path.exists(filepath):
         print(f"[patch_runner] File not found: {filepath}")
         return
@@ -77,6 +77,9 @@ def _normalize_n8n_user_result(result, fallback_items):
             _first_item = items[0] if items and isinstance(items[0], dict) else {}
             _first_json = _first_item.get("json", {}) if isinstance(_first_item, dict) else {}
 
+            sys.stdout.write("[PythonRunner:ScriptStart] Mode: All Items | Incoming items: %d\\n" % len(items))
+            sys.stdout.flush()
+
             globals = {
                 "__builtins__": TaskExecutor._filter_builtins(security_config),
                 "_items": items,
@@ -91,7 +94,9 @@ def _normalize_n8n_user_result(result, fallback_items):
 
     old_all_result = '''            result = cast(Items, globals[EXECUTOR_USER_OUTPUT_KEY])'''
     new_all_result = '''            raw_user_res = globals.get(EXECUTOR_USER_OUTPUT_KEY)
-            result = _normalize_n8n_user_result(raw_user_res, items)'''
+            result = _normalize_n8n_user_result(raw_user_res, items)
+            sys.stdout.write("[PythonRunner:ScriptSuccess] Execution finished | Returned items: %d\\n" % len(result))
+            sys.stdout.flush()'''
 
     old_per = '''                globals = {
                     "__builtins__": filtered_builtins,
@@ -102,6 +107,9 @@ def _normalize_n8n_user_result(result, fallback_items):
 
     new_per = '''                _input_helper = _N8nInputHelper(items, item)
                 _item_json = item.get("json", {}) if isinstance(item, dict) else {}
+
+                sys.stdout.write("[PythonRunner:ScriptStart] Mode: Per Item | Processing item index: %d\\n" % index)
+                sys.stdout.flush()
 
                 globals = {
                     "__builtins__": filtered_builtins,
@@ -114,9 +122,46 @@ def _normalize_n8n_user_result(result, fallback_items):
                     EXECUTOR_SAFE_FORMAT_KEY: _safe_format,
                 }'''
 
+    old_error = '''            TaskExecutor._put_error(
+                write_conn.fileno(), e, stderr_capture.getvalue(), print_args
+            )'''
+
+    new_error = '''            err_output = stderr_capture.getvalue()
+            sys.stderr.write("[PythonRunner:ScriptError] VERBOSE ERROR TRACEBACK:\\n%s\\nStderr: %s\\n" % (traceback.format_exc(), err_output))
+            sys.stderr.flush()
+            TaskExecutor._put_error(
+                write_conn.fileno(), e, err_output, print_args
+            )'''
+
     content = content.replace(old_all, new_all)
     content = content.replace(old_all_result, new_all_result)
     content = content.replace(old_per, new_per)
+    content = content.replace(old_error, new_error)
+
+    with open(filepath, "w") as f:
+        f.write(content)
+    print(f"[patch_runner] Patched {filepath} successfully")
+
+def patch_task_runner(filepath):
+    if not os.path.exists(filepath):
+        print(f"[patch_runner] File not found: {filepath}")
+        return
+
+    with open(filepath, "r") as f:
+        content = f.read()
+
+    old_exec_start = '''            task_state.process = process'''
+    new_exec_start = '''            self.logger.info(f"[PythonRunner:TaskExecute] Task {task_id} started executing")
+            task_state.process = process'''
+
+    old_task_error = '''        except Exception as e:
+            self.logger.error(f"Task {task_id} failed", exc_info=True)'''
+
+    new_task_error = '''        except Exception as e:
+            self.logger.error(f"[PythonRunner:TaskError] Task {task_id} failed with Exception: {e}", exc_info=True)'''
+
+    content = content.replace(old_exec_start, new_exec_start)
+    content = content.replace(old_task_error, new_task_error)
 
     with open(filepath, "w") as f:
         f.write(content)
@@ -124,4 +169,11 @@ def _normalize_n8n_user_result(result, fallback_items):
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        patch_file(sys.argv[1])
+        target_dir = sys.argv[1]
+        executor_path = os.path.join(target_dir, "build/lib/src/task_executor.py")
+        runner_path = os.path.join(target_dir, "build/lib/src/task_runner.py")
+        if not os.path.exists(executor_path):
+            executor_path = sys.argv[1]
+        patch_task_executor(executor_path)
+        if os.path.exists(runner_path):
+            patch_task_runner(runner_path)
