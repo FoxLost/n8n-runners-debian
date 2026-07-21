@@ -26,32 +26,40 @@ class _N8nInputHelper:
         return self._current
 
 def _normalize_n8n_user_result(result, fallback_items):
-    if result is None:
-        return fallback_items
-    if hasattr(result, "to_dict") and callable(getattr(result, "to_dict")):
-        try:
-            records = result.to_dict(orient="records")
-            return [{"json": rec} for rec in records]
-        except Exception:
-            pass
-    if hasattr(result, "all") and callable(getattr(result, "all")):
-        return result.all()
-    if isinstance(result, dict):
-        if "json" in result:
-            return [result]
-        return [{"json": result}]
-    if isinstance(result, (list, tuple)):
-        normalized = []
-        for item in result:
-            if isinstance(item, dict):
-                if "json" in item:
-                    normalized.append(item)
+    try:
+        if result is None:
+            return fallback_items
+        if hasattr(result, "to_dict") and callable(getattr(result, "to_dict")):
+            try:
+                records = result.to_dict(orient="records")
+                return [{"json": rec} for rec in records]
+            except Exception:
+                pass
+        if hasattr(result, "all") and callable(getattr(result, "all")):
+            try:
+                res_all = result.all()
+                if res_all is not None:
+                    return res_all
+            except Exception:
+                pass
+        if isinstance(result, dict):
+            if "json" in result:
+                return [result]
+            return [{"json": result}]
+        if isinstance(result, (list, tuple)):
+            normalized = []
+            for item in result:
+                if isinstance(item, dict):
+                    if "json" in item:
+                        normalized.append(item)
+                    else:
+                        normalized.append({"json": item})
                 else:
-                    normalized.append({"json": item})
-            else:
-                normalized.append({"json": {"value": item}})
-        return normalized
-    return [{"json": {"result": result}}]
+                    normalized.append({"json": {"value": str(item)}})
+            return normalized
+        return [{"json": {"result": result}}]
+    except Exception:
+        return fallback_items
 '''
 
     if "_N8nInputHelper" not in content:
