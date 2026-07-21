@@ -24,6 +24,34 @@ class _N8nInputHelper:
     @property
     def item(self):
         return self._current
+
+def _normalize_n8n_user_result(result, fallback_items):
+    if result is None:
+        return fallback_items
+    if hasattr(result, "to_dict") and callable(getattr(result, "to_dict")):
+        try:
+            records = result.to_dict(orient="records")
+            return [{"json": rec} for rec in records]
+        except Exception:
+            pass
+    if hasattr(result, "all") and callable(getattr(result, "all")):
+        return result.all()
+    if isinstance(result, dict):
+        if "json" in result:
+            return [result]
+        return [{"json": result}]
+    if isinstance(result, (list, tuple)):
+        normalized = []
+        for item in result:
+            if isinstance(item, dict):
+                if "json" in item:
+                    normalized.append(item)
+                else:
+                    normalized.append({"json": item})
+            else:
+                normalized.append({"json": {"value": item}})
+        return normalized
+    return [{"json": {"result": result}}]
 '''
 
     if "_N8nInputHelper" not in content:
@@ -53,6 +81,10 @@ class _N8nInputHelper:
                 EXECUTOR_SAFE_FORMAT_KEY: _safe_format,
             }'''
 
+    old_all_result = '''            result = cast(Items, globals[EXECUTOR_USER_OUTPUT_KEY])'''
+    new_all_result = '''            raw_user_res = globals.get(EXECUTOR_USER_OUTPUT_KEY)
+            result = _normalize_n8n_user_result(raw_user_res, items)'''
+
     old_per = '''                globals = {
                     "__builtins__": filtered_builtins,
                     "_item": item,
@@ -75,6 +107,7 @@ class _N8nInputHelper:
                 }'''
 
     content = content.replace(old_all, new_all)
+    content = content.replace(old_all_result, new_all_result)
     content = content.replace(old_per, new_per)
 
     with open(filepath, "w") as f:
