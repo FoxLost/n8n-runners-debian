@@ -92,15 +92,35 @@ docker exec -u root -it n8n-runner-debian13 apt-get update && apt-get install -y
 
 ---
 
-## Variabel Lingkungan
+## Variabel Lingkungan (Environment Variables)
+
+### 1. Variabel Lingkungan Bawaan (Stock n8n Runner & Core Integration)
+
+| Variabel | Nilai Default / Contoh | Keterangan |
+| :--- | :--- | :--- |
+| `N8N_RUNNERS_AUTH_TOKEN` | `<secret-token>` | Token rahasia untuk autentikasi komunikasi antara n8n main instance dan runner launcher |
+| `N8N_RUNNERS_ENABLED` | `true` | Mengaktifkan penggunaan task runner eksternal pada n8n main instance |
+| `N8N_RUNNERS_MODE` | `external` | Mode eksekusi runner (`external` atau `internal`) |
+| `N8N_RUNNERS_SERVER_URL` | `http://n8n-runner:5680` | URL endpoint server runner launcher |
+| `N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS` | `0` | Menonaktifkan penegakan izin ketat pada file konfigurasi (jika bernilai `0`) |
+| `NODE_ENV` | `production` | Lingkungan runtime aplikasi Node.js |
+| `N8N_RELEASE_TYPE` | `dev` | Kategori tipe rilis versi n8n |
+| `SHELL` | `/bin/bash` | Path interpreter shell default dalam container |
+
+---
+
+### 2. Variabel Lingkungan Custom Image (Debian 13 Persistent Integration)
 
 | Variabel | Nilai Default | Keterangan |
 | :--- | :--- | :--- |
-| `VIRTUAL_ENV` | `/custom-python` | Menjadikan `/custom-python` sebagai virtual environment Python aktif |
-| `PYTHONPATH` | `/custom-python/lib/python3.13/site-packages:...` | Menambahkan direktori paket kustom ke sys.path Python |
-| `PIP_TARGET` | `/custom-python/lib/python3.13/site-packages` | Target penginstalan default untuk `pip` |
-| `PIP_BREAK_SYSTEM_PACKAGES` | `1` | Mengizinkan penginstalan pip pada lingkungan Debian |
-| `UV_PROJECT_ENVIRONMENT` | `/custom-python` | Target virtual environment default untuk `uv` |
-| `NODE_PATH` | `/custom-node/node_modules:...` | Path pencarian modul Node.js |
-| `NPM_CONFIG_PREFIX` | `/custom-node` | Prefix penginstalan global default untuk `npm` |
-| `PNPM_HOME` | `/custom-node` | Direktori target default untuk `pnpm` |
+| `VIRTUAL_ENV` | `/custom-python` | Menetapakan `/custom-python` sebagai Virtual Environment Python aktif utama |
+| `PYTHONPATH` | `/custom-python/lib/python3.13/site-packages:...` | Path pencarian direktori modul Python |
+| `PIP_TARGET` | `/custom-python/lib/python3.13/site-packages` | Lokasi target penginstalan otomatis untuk perintah `pip install` |
+| `PIP_BREAK_SYSTEM_PACKAGES` | `1` | Mengizinkan penginstalan paket `pip` pada lingkungan terisolasi Debian (PEP 668) |
+| `UV_PROJECT_ENVIRONMENT` | `/custom-python` | Menetapkan `/custom-python` sebagai target virtual environment default untuk `uv` |
+| `UV_BREAK_SYSTEM_PACKAGES` | `1` | Mengizinkan penginstalan paket `uv` pada lingkungan terisolasi Debian (PEP 668) |
+| `UV_PYTHON_INSTALL_DIR` | `/custom-python/uv-python` | Direktori penyimpanan versi Python mandiri yang diunduh oleh `uv` |
+| `NODE_PATH` | `/custom-node/node_modules:...` | Path pencarian direktori modul Node.js |
+| `NPM_CONFIG_PREFIX` | `/custom-node` | Prefix penginstalan modul global dan biner default untuk `npm` |
+| `PNPM_HOME` | `/custom-node` | Direktori instalasi biner dan modul default untuk `pnpm` |
+| `PATH` | `/custom-python/bin:/custom-node/bin:...` | Mengutamakan biner dari `/custom-python/bin` dan `/custom-node/bin` dalam sistem `PATH` |
