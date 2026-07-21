@@ -185,17 +185,20 @@ RUN mkdir -p /etc && \
       "workdir": "/opt/runners/task-runner-javascript",\
       "command": "/usr/local/bin/node",\
       "args": ["dist/index.js"],\
-      "health-check-server-port": "5681"\
+      "health-check-server-port": "5681",\
+      "allowed-env": ["N8N_RUNNERS_AUTO_SHUTDOWN_TIMEOUT", "N8N_RUNNERS_TASK_TIMEOUT"]\
     },\
     {\
       "runner-type": "python",\
       "workdir": "/opt/runners/task-runner-python",\
       "command": "/opt/runners/task-runner-python/.venv/bin/python",\
       "args": ["-m", "n8n_task_runner_python"],\
-      "health-check-server-port": "5682"\
+      "health-check-server-port": "5682",\
+      "allowed-env": ["N8N_RUNNERS_AUTO_SHUTDOWN_TIMEOUT", "N8N_RUNNERS_TASK_TIMEOUT"]\
     }\
   ]\
 }' > /etc/n8n-task-runners.json
+
 
 
 # Copy entrypoint script
