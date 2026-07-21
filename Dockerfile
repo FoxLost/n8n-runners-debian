@@ -11,6 +11,12 @@ ARG DEBIAN_VERSION=13-slim
 ARG PNPM_VERSION=10.32.1
 ARG UV_VERSION=0.8.14
 ARG LAUNCHER_VERSION=1.4.7
+ARG STOCK_RUNNER_IMAGE=n8nio/runners:latest
+
+# ==============================================================================
+# STAGE 0: Official Stock Runners Fallback Image
+# ==============================================================================
+FROM ${STOCK_RUNNER_IMAGE} AS stock-runners-fallback
 
 # ==============================================================================
 # STAGE 1: JavaScript Runner Builder (@n8n/task-runner)
@@ -20,35 +26,34 @@ ARG PNPM_VERSION
 
 WORKDIR /app/task-runner-javascript
 
-# Copy build context safely
+# Copy stock javascript runner as default
+COPY --from=stock-runners-fallback /opt/runners/task-runner-javascript /app/task-runner-javascript/
+
+# Overwrite with local build context if present in repository
 COPY . /tmp/repo/
 RUN if [ -d "/tmp/repo/dist/task-runner-javascript" ]; then \
         cp -r /tmp/repo/dist/task-runner-javascript/* /app/task-runner-javascript/; \
+        if [ -f "./package.json" ]; then \
+            corepack enable pnpm && corepack prepare "pnpm@${PNPM_VERSION}" --activate; \
+            node -e "const pkg = require('./package.json'); \
+                Object.keys(pkg.dependencies || {}).forEach(k => { \
+                    const val = pkg.dependencies[k]; \
+                    if (val === 'catalog:' || val.startsWith('catalog:') || val.startsWith('workspace:')) \
+                        delete pkg.dependencies[k]; \
+                }); \
+                Object.keys(pkg.devDependencies || {}).forEach(k => { \
+                    const val = pkg.devDependencies[k]; \
+                    if (val === 'catalog:' || val.startsWith('catalog:') || val.startsWith('workspace:')) \
+                        delete pkg.devDependencies[k]; \
+                }); \
+                delete pkg.devDependencies; \
+                require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2));"; \
+            rm -f node_modules/.modules.yaml && pnpm add moment@2.30.1 --prod --no-lockfile || true; \
+        fi; \
     fi && rm -rf /tmp/repo
 
-RUN if [ -f "./package.json" ]; then \
-        corepack enable pnpm && corepack prepare "pnpm@${PNPM_VERSION}" --activate; \
-        node -e "const pkg = require('./package.json'); \
-            Object.keys(pkg.dependencies || {}).forEach(k => { \
-                const val = pkg.dependencies[k]; \
-                if (val === 'catalog:' || val.startsWith('catalog:') || val.startsWith('workspace:')) \
-                    delete pkg.dependencies[k]; \
-            }); \
-            Object.keys(pkg.devDependencies || {}).forEach(k => { \
-                const val = pkg.devDependencies[k]; \
-                if (val === 'catalog:' || val.startsWith('catalog:') || val.startsWith('workspace:')) \
-                    delete pkg.devDependencies[k]; \
-            }); \
-            delete pkg.devDependencies; \
-            require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2));"; \
-        rm -f node_modules/.modules.yaml && pnpm add moment@2.30.1 --prod --no-lockfile || true; \
-    else \
-        mkdir -p /app/task-runner-javascript/dist && \
-        echo 'console.log("JavaScript task runner initialized");' > /app/task-runner-javascript/dist/index.js; \
-    fi
-
 # ==============================================================================
-# STAGE 2: Python Runner Builder (@n8n/task-runner-python)
+# STAGE 2: Python Runner Builder (@n8n/task-runner-python) with UV
 # ==============================================================================
 FROM debian:${DEBIAN_VERSION} AS python-runner-builder
 ARG UV_VERSION
@@ -71,20 +76,37 @@ RUN set -eux; \
 
 WORKDIR /app/task-runner-python
 
-# Copy build context safely
+# Copy official python runner as default
+COPY --from=stock-runners-fallback /opt/runners/task-runner-python /app/task-runner-python/
+
+# Rebuild python virtual environment for Debian glibc architecture
+RUN rm -rf /app/task-runner-python/.venv && \
+    python3 -m venv /app/task-runner-python/.venv && \
+    if [ -d "/app/task-runner-python/build/lib/src" ]; then \
+        cp -r /app/task-runner-python/build/lib/src /app/task-runner-python/src; \
+    fi && \
+    /app/task-runner-python/.venv/bin/pip install --no-cache-dir /app/task-runner-python || true && \
+    VENV_SITE=$(find /app/task-runner-python/.venv/lib -maxdepth 2 -type d -name "site-packages") && \
+    mkdir -p "$VENV_SITE/n8n_task_runner_python" && \
+    if [ -d "/app/task-runner-python/build/lib/src" ]; then \
+        cp -r /app/task-runner-python/build/lib/src/* "$VENV_SITE/n8n_task_runner_python/"; \
+    fi && \
+    if [ -f "$VENV_SITE/n8n_task_runner_python/main.py" ]; then \
+        cp "$VENV_SITE/n8n_task_runner_python/main.py" "$VENV_SITE/n8n_task_runner_python/__main__.py"; \
+    fi
+
+
+# Overwrite with local repository source if present
 COPY . /tmp/repo/
 RUN if [ -d "/tmp/repo/packages/@n8n/task-runner-python" ]; then \
         cp -r /tmp/repo/packages/@n8n/task-runner-python/* /app/task-runner-python/; \
+        if [ -f "pyproject.toml" ]; then \
+            uv venv && \
+            uv sync --frozen --no-dev --all-extras --no-editable || true; \
+            uv pip install . || true; \
+            rm -rf /app/task-runner-python/src; \
+        fi; \
     fi && rm -rf /tmp/repo
-
-RUN if [ -f "pyproject.toml" ]; then \
-        uv venv && \
-        uv sync --frozen --no-dev --all-extras --no-editable || true; \
-        uv pip install . || true; \
-        rm -rf /app/task-runner-python/src; \
-    else \
-        python3 -m venv /app/task-runner-python/.venv; \
-    fi
 
 # ==============================================================================
 # STAGE 3: Task Runner Launcher Downloader
@@ -200,8 +222,6 @@ RUN mkdir -p /etc && \
     }\
   ]\
 }' > /etc/n8n-task-runners.json
-
-
 
 # Copy entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
