@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  n8n-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: n8n-runner-debian13
+    restart: unless-stopped
+    environment:
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=0
+    volumes:
+      # Persistent host volume mounts for custom Python & Node packages
+      - ./n8n-runner-data/python:/custom-python
+      - ./n8n-runner-data/node:/custom-node
+    ports:
+      - "5680:5680"
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n-main
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://localhost:5678/
+      # Connect n8n main instance to external Debian 13 runner
+      - N8N_RUNNERS_ENABLED=true
+      - N8N_RUNNERS_MODE=external
+      - N8N_RUNNERS_SERVER_URL=http://n8n-runner:5680
+    depends_on:
+      - n8n-runner
+    volumes:
+      - ./n8n-data:/home/node/.n8n

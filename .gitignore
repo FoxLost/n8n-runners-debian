@@ -1,0 +1,4 @@
+n8n-runner-data/
+n8n-data/
+.DS_Store
+*.log
