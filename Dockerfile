@@ -78,6 +78,9 @@ WORKDIR /app/task-runner-python
 
 # Copy official python runner as default
 COPY --from=stock-runners-fallback /opt/runners/task-runner-python /app/task-runner-python/
+COPY patch_runner.py /tmp/patch_runner.py
+
+RUN python3 /tmp/patch_runner.py /app/task-runner-python/build/lib/src/task_executor.py
 
 # Rebuild python virtual environment for Debian glibc architecture
 RUN rm -rf /app/task-runner-python/.venv && \
@@ -94,6 +97,7 @@ RUN rm -rf /app/task-runner-python/.venv && \
     if [ -f "$VENV_SITE/n8n_task_runner_python/main.py" ]; then \
         cp "$VENV_SITE/n8n_task_runner_python/main.py" "$VENV_SITE/n8n_task_runner_python/__main__.py"; \
     fi
+
 
 
 # Overwrite with local repository source if present
