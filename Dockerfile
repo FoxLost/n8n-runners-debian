@@ -161,9 +161,11 @@ RUN set -eux; \
     install -m 0755 "/tmp/uv-${UV_ARCH}/uvx" /usr/local/bin/uvx; \
     rm -rf /tmp/uv-*
 
-# Create non-root runner user (UID 1000)
+# Create non-root runner user (UID 1000) and grant passwordless sudo for entrypoint volume fixes
 RUN groupadd -g 1000 runner \
-    && useradd -u 1000 -g runner -m -s /bin/bash runner
+    && useradd -u 1000 -g runner -m -s /bin/bash runner \
+    && echo "runner ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/runner \
+    && chmod 0440 /etc/sudoers.d/runner
 
 # Prepare persistent module mount paths with proper permissions
 RUN mkdir -p /custom-python /custom-node /opt/runners \
