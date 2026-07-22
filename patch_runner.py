@@ -31,6 +31,14 @@ class _N8nNodeHelper:
         self.id = node_id
     def __getattr__(self, attr):
         return None
+    def __getitem__(self, key):
+        if hasattr(self, key):
+            return getattr(self, key)
+        return None
+    def get(self, key, default=None):
+        if hasattr(self, key):
+            return getattr(self, key)
+        return default
     def __repr__(self):
         return f"<N8nNode {self.name}>"
 
@@ -41,6 +49,14 @@ class _N8nWorkflowHelper:
         self.active = active
     def __getattr__(self, attr):
         return None
+    def __getitem__(self, key):
+        if hasattr(self, key):
+            return getattr(self, key)
+        return None
+    def get(self, key, default=None):
+        if hasattr(self, key):
+            return getattr(self, key)
+        return default
     def __repr__(self):
         return f"<N8nWorkflow {self.name}>"
 
