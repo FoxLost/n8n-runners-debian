@@ -25,6 +25,25 @@ class _N8nInputHelper:
     def item(self):
         return self._current
 
+class _N8nNodeHelper:
+    def __init__(self, name="Code", node_id=""):
+        self.name = name
+        self.id = node_id
+    def __getattr__(self, attr):
+        return None
+    def __repr__(self):
+        return f"<N8nNode {self.name}>"
+
+class _N8nWorkflowHelper:
+    def __init__(self, name="Workflow", workflow_id="", active=True):
+        self.name = name
+        self.id = workflow_id
+        self.active = active
+    def __getattr__(self, attr):
+        return None
+    def __repr__(self):
+        return f"<N8nWorkflow {self.name}>"
+
 def _normalize_n8n_user_result(result, fallback_items):
     try:
         if result is None:
@@ -74,6 +93,8 @@ def _normalize_n8n_user_result(result, fallback_items):
             }'''
 
     new_all = '''            _input_helper = _N8nInputHelper(items)
+            _node_helper = _N8nNodeHelper()
+            _workflow_helper = _N8nWorkflowHelper()
             _first_item = items[0] if items and isinstance(items[0], dict) else {}
             _first_json = _first_item.get("json", {}) if isinstance(_first_item, dict) else {}
 
@@ -85,6 +106,8 @@ def _normalize_n8n_user_result(result, fallback_items):
                 "_items": items,
                 "items": items,
                 "_input": _input_helper,
+                "_node": _node_helper,
+                "_workflow": _workflow_helper,
                 "_json": _first_json,
                 "_item": _first_item,
                 "_query": query,
@@ -106,6 +129,8 @@ def _normalize_n8n_user_result(result, fallback_items):
                 }'''
 
     new_per = '''                _input_helper = _N8nInputHelper(items, item)
+                _node_helper = _N8nNodeHelper()
+                _workflow_helper = _N8nWorkflowHelper()
                 _item_json = item.get("json", {}) if isinstance(item, dict) else {}
 
                 sys.stdout.write("[PythonRunner:ScriptStart] Mode: Per Item | Processing item index: %d\\n" % index)
@@ -117,6 +142,8 @@ def _normalize_n8n_user_result(result, fallback_items):
                     "_items": items,
                     "items": items,
                     "_input": _input_helper,
+                    "_node": _node_helper,
+                    "_workflow": _workflow_helper,
                     "_json": _item_json,
                     "print": custom_print,
                     EXECUTOR_SAFE_FORMAT_KEY: _safe_format,
